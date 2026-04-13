@@ -165,6 +165,11 @@ header {
   z-index: 220;
   padding: calc(var(--safe-top) + 20px) 24px 6px;
 }
+body.overlay-active header,
+body.overlay-active .fab-group,
+body.overlay-active .date-nav {
+  z-index: 1 !important;
+}
 .header-row {
   display: flex;
   justify-content: space-between;
@@ -687,6 +692,8 @@ body.focus-mode .card-focused {
 .panel-head {
   display:flex; justify-content:space-between;
   align-items:center; margin-bottom:18px;
+  position:sticky; top:0; z-index:2;
+  background:inherit; padding-bottom:8px;
 }
 .panel-head h2 { font-size:1.1rem; font-weight:600; }
 .panel-list {

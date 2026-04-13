@@ -233,9 +233,9 @@ const App = {
     });
 
     // 设置面板
-    $('btnCloseSettings').addEventListener('click', () => $('settingsPanel').classList.add('hidden'));
+    $('btnCloseSettings').addEventListener('click', () => this.closePanel('settingsPanel'));
     $('settingsPanel').addEventListener('click', e => {
-      if (e.target === $('settingsPanel')) $('settingsPanel').classList.add('hidden');
+      if (e.target === $('settingsPanel')) this.closePanel('settingsPanel');
     });
     $('btnRefreshICal').addEventListener('click', () => this.refreshICal());
     $('btnParseICal').addEventListener('click', () => this.parseICalText());
@@ -251,9 +251,9 @@ const App = {
     $('btnSyncClean').addEventListener('click', () => this.doSyncClean());
 
     // 外观面板
-    $('btnCloseAppearance').addEventListener('click', () => $('appearancePanel').classList.add('hidden'));
+    $('btnCloseAppearance').addEventListener('click', () => this.closePanel('appearancePanel'));
     $('appearancePanel').addEventListener('click', e => {
-      if (e.target === $('appearancePanel')) $('appearancePanel').classList.add('hidden');
+      if (e.target === $('appearancePanel')) this.closePanel('appearancePanel');
     });
     $('btnApplyAppearance').addEventListener('click', () => this.saveAppearance());
     $('btnResetAppearance').addEventListener('click', () => this.resetAppearance());
@@ -312,22 +312,22 @@ const App = {
     $('btnDrawer').addEventListener('click', () => this.openDrawer());
     $('btnTrash').addEventListener('click', () => this.openTrash());
     $('btnExplore').addEventListener('click', () => this.openExplore());
-    $('btnCloseDrawer').addEventListener('click', () => $('drawerPanel').classList.add('hidden'));
-    $('btnCloseTrash').addEventListener('click', () => $('trashPanel').classList.add('hidden'));
-    $('btnCloseExplore').addEventListener('click', () => $('explorePanel').classList.add('hidden'));
+    $('btnCloseDrawer').addEventListener('click', () => this.closePanel('drawerPanel'));
+    $('btnCloseTrash').addEventListener('click', () => this.closePanel('trashPanel'));
+    $('btnCloseExplore').addEventListener('click', () => this.closePanel('explorePanel'));
     $('btnHistory').addEventListener('click', () => this.openHistory());
-    $('btnCloseHistory').addEventListener('click', () => $('historyPanel').classList.add('hidden'));
+    $('btnCloseHistory').addEventListener('click', () => this.closePanel('historyPanel'));
     $('historyPanel').addEventListener('click', e => {
-      if (e.target === $('historyPanel')) $('historyPanel').classList.add('hidden');
+      if (e.target === $('historyPanel')) this.closePanel('historyPanel');
     });
     $('explorePanel').addEventListener('click', e => {
-      if (e.target === $('explorePanel')) $('explorePanel').classList.add('hidden');
+      if (e.target === $('explorePanel')) this.closePanel('explorePanel');
     });
     $('drawerPanel').addEventListener('click', e => {
-      if (e.target === $('drawerPanel')) $('drawerPanel').classList.add('hidden');
+      if (e.target === $('drawerPanel')) this.closePanel('drawerPanel');
     });
     $('trashPanel').addEventListener('click', e => {
-      if (e.target === $('trashPanel')) $('trashPanel').classList.add('hidden');
+      if (e.target === $('trashPanel')) this.closePanel('trashPanel');
     });
 
     // 展开详情关闭（点外部关闭，不中断计时/闹钟）
@@ -461,9 +461,20 @@ const App = {
     if (chk) chk.checked = !!active;
   },
 
+  openPanel(id) {
+    document.getElementById(id).classList.remove('hidden');
+    document.body.classList.add('overlay-active');
+  },
+  closePanel(id) {
+    document.getElementById(id).classList.add('hidden');
+    // Only remove if no other panels are open
+    const anyOpen = document.querySelector('.overlay-panel:not(.hidden)');
+    if (!anyOpen) document.body.classList.remove('overlay-active');
+  },
+
   openSettings() {
     const $ = id => document.getElementById(id);
-    $('settingsPanel').classList.remove('hidden');
+    this.openPanel('settingsPanel');
     $('inputIcalURL').value = localStorage.getItem(this.ICAL_URL_KEY) || CONFIG.icalURL;
     const cfg = Sync.getConfig();
     $('inputGHToken').value = cfg.token;
@@ -493,7 +504,7 @@ const App = {
 
   openAppearance() {
     const $ = id => document.getElementById(id);
-    $('appearancePanel').classList.remove('hidden');
+    this.openPanel('appearancePanel');
     const saved = this._getAppearance();
     $('apClrPrimary').value   = saved['--glow-primary'];
     $('apClrSecondary').value = saved['--glow-secondary'];
@@ -572,7 +583,7 @@ const App = {
     };
     localStorage.setItem(this.APPEAR_KEY, JSON.stringify(cfg));
     this.applyAppearance(cfg);
-    $('appearancePanel').classList.add('hidden');
+    this.closePanel('appearancePanel');
   },
 
   resetAppearance() {
@@ -1025,7 +1036,7 @@ const App = {
 
   openMemory() {
     const panel = document.getElementById('memoryPanel');
-    panel.classList.remove('hidden');
+    this.openPanel('memoryPanel');
     // 初始化空编辑状态
     this.memEditingRange = null;
     this.memWeeklyBuffer = { '0':[], '1':[], '2':[], '3':[], '4':[], '5':[], '6':[] };
@@ -1048,7 +1059,7 @@ const App = {
   },
 
   closeMemory() {
-    document.getElementById('memoryPanel').classList.add('hidden');
+    this.closePanel('memoryPanel');
   },
 
   /** 渲染当前选中的星期几的课程列表 */
@@ -1902,7 +1913,7 @@ const App = {
     const panel = document.getElementById('drawerPanel');
     const list = document.getElementById('drawerList');
     const empty = document.getElementById('drawerEmpty');
-    panel.classList.remove('hidden');
+    this.openPanel('drawerPanel');
 
     if (this.todayDrawer.length === 0) {
       list.innerHTML = '';
@@ -1926,7 +1937,7 @@ const App = {
     const panel = document.getElementById('trashPanel');
     const list = document.getElementById('trashList');
     const empty = document.getElementById('trashEmpty');
-    panel.classList.remove('hidden');
+    this.openPanel('trashPanel');
 
     if (this.todayTrash.length === 0) {
       list.innerHTML = '';
@@ -1958,7 +1969,7 @@ const App = {
     const panel = document.getElementById('historyPanel');
     const list = document.getElementById('historyList');
     const empty = document.getElementById('historyEmpty');
-    panel.classList.remove('hidden');
+    this.openPanel('historyPanel');
 
     // 构建课程 ID → { name, color } 的映射
     const courseMap = {};
@@ -2036,7 +2047,7 @@ const App = {
   openExplore() {
     const panel = document.getElementById('explorePanel');
     const list = document.getElementById('exploreList');
-    panel.classList.remove('hidden');
+    this.openPanel('explorePanel');
     list.innerHTML = CONFIG.weekendCourses.map(c => `
       <a class="explore-item" href="${c.url}" target="_blank">
         <span class="exp-icon" style="background:${c.color}">${c.icon}</span>
