@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chronos 配置向导</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: #0d1117; color: #e6edf3;
+    min-height: 100vh; padding: 24px;
+  }
+  h1 { text-align: center; margin-bottom: 8px; font-size: 1.6rem; }
+  .subtitle { text-align: center; color: #8b949e; margin-bottom: 32px; font-size: .9rem; }
+  .step { display: none; max-width: 720px; margin: 0 auto; }
+  .step.active { display: block; }
+  .step-title { font-size: 1.2rem; margin-bottom: 16px; color: #58a6ff; }
+  .step-desc { color: #8b949e; margin-bottom: 20px; font-size: .85rem; }
+
+  label { display: block; font-size: .85rem; color: #8b949e; margin-bottom: 4px; }
+  input, textarea, select {
+    width: 100%; padding: 10px 12px; border: 1px solid #30363d;
+    background: #161b22; color: #e6edf3; border-radius: 6px;
+    font-size: .9rem; margin-bottom: 14px; outline: none;
+  }
+  input:focus, textarea:focus { border-color: #58a6ff; }
+  textarea { resize: vertical; min-height: 80px; font-family: monospace; }
+
+  .btn {
+    padding: 10px 20px; border: none; border-radius: 6px;
+    font-size: .9rem; cursor: pointer; font-weight: 500;
+  }
+  .btn-primary { background: #238636; color: #fff; }
+  .btn-primary:hover { background: #2ea043; }
+  .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+  .btn-secondary:hover { background: #30363d; }
+  .btn-danger { background: #da3633; color: #fff; }
+  .btn-danger:hover { background: #f85149; }
+  .btn-small { padding: 6px 12px; font-size: .8rem; }
+
+  .nav-row { display: flex; justify-content: space-between; margin-top: 24px; }
+
+  /* Course card */
+  .course-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 16px; margin-bottom: 12px; position: relative;
+  }
+  .course-card .remove-btn {
+    position: absolute; top: 8px; right: 8px;
+    background: none; border: none; color: #f85149; cursor: pointer; font-size: 1.1rem;
+  }
+  .course-header { display: flex; gap: 10px; flex-wrap: wrap; }
+  .course-header input { flex: 1; min-width: 120px; }
+  .course-header input.short { max-width: 80px; flex: 0 0 80px; }
+  .course-header input[type="color"] { max-width: 50px; flex: 0 0 50px; padding: 2px; height: 38px; }
+
+  /* Unit */
+  .unit-block {
+    margin: 10px 0 10px 12px; padding: 12px;
+    border-left: 2px solid #30363d; background: #0d1117; border-radius: 0 6px 6px 0;
+  }
+  .unit-block input { margin-bottom: 8px; }
+  .chapter-list { margin-left: 8px; }
+  .chapter-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .chapter-row input:first-child { flex: 1; }
+  .chapter-row input:last-of-type { flex: 1.5; }
+  .chapter-row button { flex-shrink: 0; }
+
+  .add-row { display: flex; gap: 8px; margin-top: 8px; }
+
+  /* Progress bar */
+  .progress-bar { display: flex; gap: 4px; margin-bottom: 24px; }
+  .progress-dot {
+    flex: 1; height: 4px; border-radius: 2px; background: #21262d;
+    transition: background .3s;
+  }
+  .progress-dot.done { background: #238636; }
+  .progress-dot.current { background: #58a6ff; }
+
+  /* Preview */
+  #preview {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 16px; font-family: monospace; font-size: .8rem;
+    white-space: pre-wrap; max-height: 60vh; overflow-y: auto;
+    line-height: 1.5;
+  }
+
+  /* Steps indicator */
+  .steps-indicator {
+    display: flex; justify-content: center; gap: 24px; margin-bottom: 24px;
+    font-size: .8rem; color: #484f58;
+  }
+  .steps-indicator span.active { color: #58a6ff; font-weight: 600; }
+  .steps-indicator span.done { color: #238636; }
+
+  /* Auto-fetch indicator */
+  .fetch-status { font-size: .8rem; padding: 6px 10px; border-radius: 4px; margin-bottom: 10px; }
+  .fetch-status.loading { background: #1c2128; color: #d29922; }
+  .fetch-status.success { background: #1c2128; color: #3fb950; }
+  .fetch-status.error { background: #1c2128; color: #f85149; }
+</style>
+</head>
+<body>
+
+<h1>⚙ Chronos 配置向导</h1>
+<p class="subtitle">为下学期生成新的 config.js</p>
+
+<div class="progress-bar" id="progressBar"></div>
+<div class="steps-indicator" id="stepsIndicator"></div>
+
+<!-- Step 1: iCal URL -->
+<div class="step active" id="step-0">
+  <div class="step-title">1 / 5 — 课表订阅</div>
+  <div class="step-desc">粘贴你的 iCal / vCal 订阅地址。这是学校课表系统提供的日历订阅链接。</div>
+  <label>iCal / vCal URL</label>
+  <input type="url" id="icalURL" placeholder="https://adeconsult.app...calType=vcal&nbWeeks=4">
+  <label>CORS 代理（一般不需要改）</label>
+  <input type="text" id="corsProxy" value="https://api.allorigins.win/raw?url=">
+  <div class="nav-row">
+    <span></span>
+    <button class="btn btn-primary" onclick="goStep(1)">下一步 →</button>
+  </div>
+</div>
+
+<!-- Step 2: Advance courses (mainCourses) -->
+<div class="step" id="step-1">
+  <div class="step-title">2 / 5 — 主课程（Advance）</div>
+  <div class="step-desc">
+    添加你的学习网站。每门主课可以有多个单元（Unit），每个单元包含多个章节。<br>
+    如果网站是多页面的（如 GitHub Pages），可以填写每章的具体 URL；<br>
+    如果是 SPA 单页应用，所有章节填同一个 URL 即可。
+  </div>
+  <div id="mainCoursesList"></div>
+  <button class="btn btn-secondary" onclick="addMainCourse()">+ 添加主课程</button>
+  <div class="nav-row">
+    <button class="btn btn-secondary" onclick="goStep(0)">← 上一步</button>
+    <button class="btn btn-primary" onclick="goStep(2)">下一步 →</button>
+  </div>
+</div>
+
+<!-- Step 3: Review courses (examCourses) -->
+<div class="step" id="step-2">
+  <div class="step-title">3 / 5 — 复习课程（Review / Exam）</div>
+  <div class="step-desc">考试周模式下会替代主课程出现的复习网站。每门只需一个链接。</div>
+  <div id="examCoursesList"></div>
+  <button class="btn btn-secondary" onclick="addExamCourse()">+ 添加复习课程</button>
+  <div class="nav-row">
+    <button class="btn btn-secondary" onclick="goStep(1)">← 上一步</button>
+    <button class="btn btn-primary" onclick="goStep(3)">下一步 →</button>
+  </div>
+</div>
+
+<!-- Step 4: Weekend / Optional courses -->
+<div class="step" id="step-3">
+  <div class="step-title">4 / 5 — 周末 / 探索课程</div>
+  <div class="step-desc">空闲时间可选的扩展学习资源。</div>
+  <div id="weekendCoursesList"></div>
+  <button class="btn btn-secondary" onclick="addWeekendCourse()">+ 添加探索课程</button>
+  <div class="nav-row">
+    <button class="btn btn-secondary" onclick="goStep(2)">← 上一步</button>
+    <button class="btn btn-primary" onclick="goStep(4)">下一步 →</button>
+  </div>
+</div>
+
+<!-- Step 5: Preview & Export -->
+<div class="step" id="step-4">
+  <div class="step-title">5 / 5 — 预览 & 导出</div>
+  <div class="step-desc">检查生成的配置文件，确认无误后保存。</div>
+  <pre id="preview"></pre>
+  <div class="nav-row">
+    <button class="btn btn-secondary" onclick="goStep(3)">← 上一步</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary" onclick="copyConfig()">📋 复制</button>
+      <button class="btn btn-primary" onclick="downloadConfig()">💾 下载 config.js</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOTAL_STEPS = 5;
+const STEP_NAMES = ['课表', '主课程', '复习课', '探索课', '导出'];
+const COLORS = ['#4FC3F7', '#81C784', '#FFB74D', '#CE93D8', '#F48FB1', '#EF9A9A', '#80CBC4', '#A5D6A7'];
+let currentStep = 0;
+
+// ─── Data ───
+let mainCourses = [];
+let examCourses = [];
+let weekendCourses = [];
+let courseIdCounter = 0;
+
+function uid() { return 'c' + (++courseIdCounter); }
+
+// ─── Navigation ───
+function goStep(n) {
+  currentStep = n;
+  document.querySelectorAll('.step').forEach((el, i) => {
+    el.classList.toggle('active', i === n);
+  });
+  updateProgress();
+  if (n === 4) renderPreview();
+}
+
+function updateProgress() {
+  const bar = document.getElementById('progressBar');
+  const ind = document.getElementById('stepsIndicator');
+  bar.innerHTML = '';
+  ind.innerHTML = '';
+  for (let i = 0; i < TOTAL_STEPS; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'progress-dot' + (i < currentStep ? ' done' : i === currentStep ? ' current' : '');
+    bar.appendChild(dot);
+    const sp = document.createElement('span');
+    sp.textContent = STEP_NAMES[i];
+    sp.className = i < currentStep ? 'done' : i === currentStep ? 'active' : '';
+    ind.appendChild(sp);
+  }
+}
+
+// ─── Main Courses ───
+function addMainCourse() {
+  const id = uid();
+  mainCourses.push({
+    _id: id,
+    id: '',
+    name: '',
+    color: COLORS[mainCourses.length % COLORS.length],
+    icon: '',
+    baseURL: '',
+    units: []
+  });
+  renderMainCourses();
+}
+
+function removeMainCourse(id) {
+  mainCourses = mainCourses.filter(c => c._id !== id);
+  renderMainCourses();
+}
+
+function addUnit(courseId) {
+  const c = mainCourses.find(c => c._id === courseId);
+  if (c) {
+    c.units.push({ title: '', chapters: [{ title: '', url: '' }] });
+    renderMainCourses();
+  }
+}
+
+function removeUnit(courseId, ui) {
+  const c = mainCourses.find(c => c._id === courseId);
+  if (c) { c.units.splice(ui, 1); renderMainCourses(); }
+}
+
+function addChapter(courseId, ui) {
+  const c = mainCourses.find(c => c._id === courseId);
+  if (c) { c.units[ui].chapters.push({ title: '', url: '' }); renderMainCourses(); }
+}
+
+function removeChapter(courseId, ui, ci) {
+  const c = mainCourses.find(c => c._id === courseId);
+  if (c && c.units[ui].chapters.length > 1) {
+    c.units[ui].chapters.splice(ci, 1);
+    renderMainCourses();
+  }
+}
+
+function syncMainField(id, field, value) {
+  const c = mainCourses.find(c => c._id === id);
+  if (c) c[field] = value;
+}
+
+function syncUnitTitle(id, ui, value) {
+  const c = mainCourses.find(c => c._id === id);
+  if (c) c.units[ui].title = value;
+}
+
+function syncChapter(id, ui, ci, field, value) {
+  const c = mainCourses.find(c => c._id === id);
+  if (c) c.units[ui].chapters[ci][field] = value;
+}
+
+function fillAllChapterURLs(courseId, ui) {
+  const c = mainCourses.find(c => c._id === courseId);
+  if (!c) return;
+  const base = c.baseURL.replace(/\/$/, '');
+  if (!base) return;
+  c.units[ui].chapters.forEach((ch, ci) => {
+    if (!ch.url) ch.url = base;
+  });
+  renderMainCourses();
+}
+
+function renderMainCourses() {
+  const el = document.getElementById('mainCoursesList');
+  el.innerHTML = mainCourses.map(c => `
+    <div class="course-card">
+      <button class="remove-btn" onclick="removeMainCourse('${c._id}')">✕</button>
+      <div class="course-header">
+        <div><label>课程 ID</label><input class="short" value="${esc(c.id)}" placeholder="cpp" oninput="syncMainField('${c._id}','id',this.value)"></div>
+        <div style="flex:1"><label>名称</label><input value="${esc(c.name)}" placeholder="C++ 全栈" oninput="syncMainField('${c._id}','name',this.value)"></div>
+        <div><label>图标</label><input class="short" value="${esc(c.icon)}" placeholder="C++" oninput="syncMainField('${c._id}','icon',this.value)"></div>
+        <div><label>颜色</label><input type="color" value="${c.color}" oninput="syncMainField('${c._id}','color',this.value)"></div>
+      </div>
+      <label>Base URL（SPA 全填此地址）</label>
+      <input value="${esc(c.baseURL)}" placeholder="https://..." oninput="syncMainField('${c._id}','baseURL',this.value)">
+      ${c.units.map((u, ui) => `
+        <div class="unit-block">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <strong style="font-size:.85rem;color:#58a6ff;">单元 ${ui + 1}</strong>
+            <button class="btn btn-danger btn-small" onclick="removeUnit('${c._id}',${ui})">删除单元</button>
+          </div>
+          <input value="${esc(u.title)}" placeholder="单元标题（如 OOP 面向对象）" oninput="syncUnitTitle('${c._id}',${ui},this.value)">
+          <div class="chapter-list">
+            ${u.chapters.map((ch, ci) => `
+              <div class="chapter-row">
+                <input value="${esc(ch.title)}" placeholder="章节标题" oninput="syncChapter('${c._id}',${ui},${ci},'title',this.value)">
+                <input value="${esc(ch.url)}" placeholder="章节 URL" oninput="syncChapter('${c._id}',${ui},${ci},'url',this.value)">
+                <button class="btn btn-danger btn-small" onclick="removeChapter('${c._id}',${ui},${ci})">✕</button>
+              </div>
+            `).join('')}
+          </div>
+          <div class="add-row">
+            <button class="btn btn-secondary btn-small" onclick="addChapter('${c._id}',${ui})">+ 章节</button>
+            <button class="btn btn-secondary btn-small" onclick="fillAllChapterURLs('${c._id}',${ui})">填充空 URL = Base URL</button>
+          </div>
+        </div>
+      `).join('')}
+      <button class="btn btn-secondary btn-small" style="margin-top:8px" onclick="addUnit('${c._id}')">+ 添加单元</button>
+    </div>
+  `).join('');
+}
+
+// ─── Exam / Review Courses ───
+function addExamCourse() {
+  examCourses.push({ _id: uid(), id: '', name: '', color: COLORS[(examCourses.length + 3) % COLORS.length], icon: 'REV', url: '' });
+  renderExamCourses();
+}
+function removeExamCourse(id) {
+  examCourses = examCourses.filter(c => c._id !== id);
+  renderExamCourses();
+}
+function syncExamField(id, field, value) {
+  const c = examCourses.find(c => c._id === id);
+  if (c) c[field] = value;
+}
+function renderExamCourses() {
+  const el = document.getElementById('examCoursesList');
+  el.innerHTML = examCourses.map(c => `
+    <div class="course-card">
+      <button class="remove-btn" onclick="removeExamCourse('${c._id}')">✕</button>
+      <div class="course-header">
+        <div><label>ID</label><input class="short" value="${esc(c.id)}" placeholder="review_mc2" oninput="syncExamField('${c._id}','id',this.value)"></div>
+        <div style="flex:1"><label>名称</label><input value="${esc(c.name)}" placeholder="MC2 复习" oninput="syncExamField('${c._id}','name',this.value)"></div>
+        <div><label>图标</label><input class="short" value="${esc(c.icon)}" placeholder="REV" oninput="syncExamField('${c._id}','icon',this.value)"></div>
+        <div><label>颜色</label><input type="color" value="${c.color}" oninput="syncExamField('${c._id}','color',this.value)"></div>
+      </div>
+      <label>URL</label>
+      <input value="${esc(c.url)}" placeholder="https://..." oninput="syncExamField('${c._id}','url',this.value)">
+    </div>
+  `).join('');
+}
+
+// ─── Weekend Courses ───
+function addWeekendCourse() {
+  weekendCourses.push({ _id: uid(), id: '', name: '', color: COLORS[(weekendCourses.length + 5) % COLORS.length], icon: '', url: '' });
+  renderWeekendCourses();
+}
+function removeWeekendCourse(id) {
+  weekendCourses = weekendCourses.filter(c => c._id !== id);
+  renderWeekendCourses();
+}
+function syncWeekendField(id, field, value) {
+  const c = weekendCourses.find(c => c._id === id);
+  if (c) c[field] = value;
+}
+function renderWeekendCourses() {
+  const el = document.getElementById('weekendCoursesList');
+  el.innerHTML = weekendCourses.map(c => `
+    <div class="course-card">
+      <button class="remove-btn" onclick="removeWeekendCourse('${c._id}')">✕</button>
+      <div class="course-header">
+        <div><label>ID</label><input class="short" value="${esc(c.id)}" placeholder="algo" oninput="syncWeekendField('${c._id}','id',this.value)"></div>
+        <div style="flex:1"><label>名称</label><input value="${esc(c.name)}" placeholder="算法互动" oninput="syncWeekendField('${c._id}','name',this.value)"></div>
+        <div><label>图标</label><input class="short" value="${esc(c.icon)}" placeholder="ALG" oninput="syncWeekendField('${c._id}','icon',this.value)"></div>
+        <div><label>颜色</label><input type="color" value="${c.color}" oninput="syncWeekendField('${c._id}','color',this.value)"></div>
+      </div>
+      <label>URL</label>
+      <input value="${esc(c.url)}" placeholder="https://..." oninput="syncWeekendField('${c._id}','url',this.value)">
+    </div>
+  `).join('');
+}
+
+// ─── Config Generation ───
+function generateConfig() {
+  const ical = document.getElementById('icalURL').value.trim();
+  const proxy = document.getElementById('corsProxy').value.trim();
+
+  const mainStr = mainCourses.map(c => {
+    const unitsStr = c.units.map(u => {
+      const chStr = u.chapters
+        .filter(ch => ch.title || ch.url)
+        .map(ch => `            { title: '${jsEsc(ch.title)}', url: '${jsEsc(ch.url)}' }`)
+        .join(',\n');
+      return `        {\n          title: '${jsEsc(u.title)}',\n          chapters: [\n${chStr}\n          ]\n        }`;
+    }).join(',\n');
+    return `    {\n      id: '${jsEsc(c.id)}',\n      name: '${jsEsc(c.name)}',\n      color: '${c.color}',\n      icon: '${jsEsc(c.icon)}',\n      baseURL: '${jsEsc(c.baseURL)}',\n      units: [\n${unitsStr}\n      ]\n    }`;
+  }).join(',\n');
+
+  const examStr = examCourses.map(c =>
+    `    {\n      id: '${jsEsc(c.id)}',\n      name: '${jsEsc(c.name)}',\n      color: '${c.color}',\n      icon: '${jsEsc(c.icon)}',\n      url: '${jsEsc(c.url)}'\n    }`
+  ).join(',\n');
+
+  const weekendStr = weekendCourses.map(c =>
+    `    {\n      id: '${jsEsc(c.id)}',\n      name: '${jsEsc(c.name)}',\n      color: '${c.color}',\n      icon: '${jsEsc(c.icon)}',\n      url: '${jsEsc(c.url)}'\n    }`
+  ).join(',\n');
+
+  return `// ═══════════════════════════════════════════════════
+//  学习课程配置 — 由 Chronos 配置向导生成
+//  生成时间: ${new Date().toLocaleString('zh-CN')}
+// ═══════════════════════════════════════════════════
+
+const CONFIG = {
+  icalURL: '${jsEsc(ical)}',
+  corsProxy: '${jsEsc(proxy)}',
+
+  dayStart: '08:00',
+  dayEnd: '23:30',
+  sessionMinutes: 40,
+  bufferMinutes: 5,
+  minSlotMinutes: 45,
+  weeklyUnits: 3,
+  chaptersPerUnit: 4,
+  maxDailySessions: 4,
+  freeDays: [5],
+  commuteMinutes: 120,
+
+  // ─── 主课程 ───
+  mainCourses: [
+${mainStr}
+  ],
+
+  // ─── 周末 / 探索课程 ───
+  weekendCourses: [
+${weekendStr}
+  ],
+
+  // ─── 考试周复习课程 ───
+  examCourses: [
+${examStr}
+  ]
+};
+`;
+}
+
+function renderPreview() {
+  document.getElementById('preview').textContent = generateConfig();
+}
+
+function copyConfig() {
+  navigator.clipboard.writeText(generateConfig()).then(() => {
+    alert('已复制到剪贴板！');
+  });
+}
+
+function downloadConfig() {
+  const blob = new Blob([generateConfig()], { type: 'text/javascript' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'config.js';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ─── Utilities ───
+function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function jsEsc(s) { return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+// ─── Init ───
+updateProgress();
+</script>
+</body>
+</html>

@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#09090b">
+  <title>Chronos · StudyClock</title>
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=14">
+
+  <!-- 仅用来消除“廉价感”的微调样式，绝对保留原有设计 -->
+  <style>
+    :root {
+      /* 将原来的生硬单层阴影替换为多层柔和、带细微内发光的自然阴影，这是去除廉价卡片感的关键 */
+      --shadow-card: 0 10px 25px -5px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+      --shadow-bar: 0 -4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+      
+      /* 将原来过白的玻璃边框调暗一丢丢，使其与底色融合更自然 */
+      --glass-border: rgba(255, 255, 255, 0.05);
+    }
+
+    body {
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    /* 优化玻璃态组件：添加自然平滑的阴影层与过渡 */
+    .glass-btn, .nav-date, .stat-chip, .task-card, .capsule-bar {
+      box-shadow: var(--shadow-card);
+      border: 1px solid var(--glass-border);
+    }
+    
+    .task-card {
+      /* 略微降低卡片底色白度，使其不那么喧宾夺主 */
+      background: var(--glass-bg);
+    }
+
+    .glass-sheet {
+      border-top: 1px solid rgba(255, 255, 255, 0.08); /* 顶部高光，增加质感 */
+      box-shadow: 0 -15px 40px rgba(0,0,0,0.6);
+    }
+
+    /* 优化发光按钮 (Glow Button)：去除像旧版霓虹灯一样的生硬散射，换为精致的 Bloom 绽放光晕 */
+    .glow-primary {
+      box-shadow: 0 6px 14px -2px rgba(var(--glow-primary-rgb), 0.4);
+      border: 1px solid rgba(var(--glow-primary-rgb), 0.5) !important;
+    }
+    .glow-danger {
+      box-shadow: 0 6px 14px -2px rgba(var(--glow-danger-rgb), 0.4);
+      border: 1px solid rgba(var(--glow-danger-rgb), 0.5) !important;
+    }
+    .glow-success {
+      box-shadow: 0 6px 14px -2px rgba(var(--glow-success-rgb), 0.4);
+      border: 1px solid rgba(var(--glow-success-rgb), 0.5) !important;
+    }
+    
+    .pill-btn {
+      /* 稍微微调按钮的内外边距，使其看起来更扎实 */
+      padding: 10px 20px;
+    }
+
+    /* 优化呼吸动画 (Breathe Animation)：调低闪烁程度，提升高级感 */
+    @keyframes fab-breathe {
+      0%,100% { box-shadow: 0 0 0 0 rgba(var(--glow-primary-rgb),0); }
+      50%     { box-shadow: 0 0 16px 2px rgba(var(--glow-primary-rgb),0.3); }
+    }
+
+    @keyframes card-breathe {
+      0%,100% { transform: scale(1); }
+      50%     { transform: scale(1.004); box-shadow: var(--shadow-card), 0 0 20px rgba(var(--glow-primary-rgb),0.1); }
+    }
+
+    @keyframes breathe-glow {
+      0%,100% { box-shadow: var(--shadow-card); }
+      50%     { box-shadow: var(--shadow-card), 0 0 30px rgba(var(--glow-primary-rgb),0.22); }
+    }
+
+    /* 优化输入框：激活时增加微妙的光晕，而不是生硬的色彩块 */
+    .glass-input:focus {
+      outline: none;
+      border-color: rgba(var(--glow-primary-rgb), 0.7);
+      box-shadow: 0 0 0 3px rgba(var(--glow-primary-rgb), 0.15);
+      background: rgba(128, 128, 128, 0.15);
+    }
+
+    /* 去除文字排版中的粗糙边缘 */
+    .stat-num, .date-title {
+      line-height: 1.1;
+    }
+
+    /* 去除图标，仅用排版和色彩作为分类标识 */
+    .fab-child { width: auto !important; padding: 0 14px; border-radius: 18px !important; white-space: nowrap; font-weight: 600; letter-spacing: 0.5px; }
+    .panel-head h2 { display: flex; align-items: center; }
+  </style>
+</head>
+<body>
+
+<!-- FAB 展开背景模糊 -->
+<div class="fab-backdrop" id="fabBackdrop"></div>
+
+<div id="app-frame">
+  <!-- ═══ 极光呼吸背景 ═══ -->
+  <div class="aurora-bg">
+    <div class="gel-blob blob-1"></div>
+    <div class="gel-blob blob-2"></div>
+    <div class="gel-blob blob-3"></div>
+  </div>
+
+  <!-- ═══ Push 消息容器 ═══ -->
+  <div id="push-container"></div>
+
+  <!-- FAB + 裂殖菜单（右上角）-->
+  <div class="fab-group" id="fabGroup">
+    <button class="fab-main glass-btn" id="fabMain" aria-label="菜单">+</button>
+    <button class="fab-child" data-action="schedule"><span class="fc-label" style="color: var(--glow-secondary)">日程</span></button>
+    <button class="fab-child" data-action="settings"><span class="fc-label" style="color: var(--text-sub)">设置</span></button>
+    <button class="fab-child" data-action="sync"><span class="fc-label" style="color: var(--glow-success)">同步</span></button>
+    <button class="fab-child" data-action="appearance"><span class="fc-label" style="color: var(--glow-primary)">外观</span></button>
+    <button class="fab-child" data-action="exam" id="fabExam"><span class="fc-label" style="color: var(--glow-warning, #FFB74D)">考试周</span></button>
+  </div>
+
+  <!-- ═══ Header ═══ -->
+  <header>
+    <div class="header-row">
+      <div>
+        <div class="greeting" id="greeting"></div>
+        <div class="date-title" id="dateTitle"></div>
+      </div>
+    </div>
+    <!-- 日期导航（点击弹日历，上下滑切日期）-->
+    <nav class="date-nav">
+      <button class="nav-date glass-pill" id="btnDatePicker">
+        <span id="navDateText"></span>
+      </button>
+      <input type="date" id="hiddenDatePicker" class="sr-only">
+      <button class="nav-today" id="btnToday">今</button>
+
+      <!-- 自定义日期选择器 -->
+      <div id="customDatePicker" class="custom-date-picker hidden">
+        <div class="cdp-header">
+          <button class="cdp-arrow" id="cdpPrevMonth">‹</button>
+          <span class="cdp-month-label" id="cdpMonthLabel"></span>
+          <button class="cdp-arrow" id="cdpNextMonth">›</button>
+        </div>
+        <div class="cdp-weekdays">
+          <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+        </div>
+        <div class="cdp-grid" id="cdpGrid"></div>
+        <label class="cdp-exam-toggle" id="cdpExamRow">
+          <input type="checkbox" id="cdpExamCheck">
+          <span>考试周模式</span>
+        </label>
+      </div>
+    </nav>
+  </header>
+
+  <!-- ═══ 统计条 ═══ -->
+  <section class="stats-strip" id="statsStrip">
+    <div class="stat-chip">
+      <span class="stat-num" id="weekLearned">0</span>
+      <span class="stat-label">本周学</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-num" id="weekReviewed">0</span>
+      <span class="stat-label">本周复习</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-num" id="daySlots">0</span>
+      <span class="stat-label">今日</span>
+    </div>
+  </section>
+
+  <!-- ═══ 进度环 ═══ -->
+  <section class="progress-strip" id="progressStrip"></section>
+
+  <!-- ═══ 时间线 ═══ -->
+  <div id="timeline"></div>
+
+  <!-- ═══ 周末推荐 ═══ -->
+  <section id="weekendSection" class="hidden">
+    <div class="section-label">自由探索</div>
+    <div class="weekend-grid" id="weekendGrid"></div>
+  </section>
+
+  <!-- ═══ 抽屉面板 ═══ -->
+  <div id="drawerPanel" class="overlay-panel hidden">
+    <div class="panel-sheet glass-sheet">
+      <div class="panel-head">
+        <h2><span style="color: var(--glow-success); margin-right: 8px; font-size: 0.8em">●</span>已完成</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="pill-btn glass-pill-btn" id="btnHistory" style="font-size:.72rem;padding:5px 12px">历史</button>
+          <button class="icon-btn" id="btnCloseDrawer">✕</button>
+        </div>
+      </div>
+      <div id="drawerList" class="panel-list"></div>
+      <div class="panel-empty hidden" id="drawerEmpty">还没有完成的任务</div>
+    </div>
+  </div>
+
+  <!-- ═══ 历史完成记录面板 ═══ -->
+  <div id="historyPanel" class="overlay-panel hidden">
+    <div class="panel-sheet glass-sheet" style="max-height:80vh;overflow-y:auto">
+      <div class="panel-head">
+        <h2><span style="color: var(--glow-primary); margin-right: 8px; font-size: 0.8em">●</span>历史完成</h2>
+        <button class="icon-btn" id="btnCloseHistory">✕</button>
+      </div>
+      <div id="historyList" class="panel-list"></div>
+      <div class="panel-empty hidden" id="historyEmpty">暂无完成记录</div>
+    </div>
+  </div>
+
+  <!-- ═══ 垃圾桶面板 ═══ -->
+  <div id="trashPanel" class="overlay-panel hidden">
+    <div class="panel-sheet glass-sheet">
+      <div class="panel-head">
+        <h2><span style="color: var(--glow-danger); margin-right: 8px; font-size: 0.8em">●</span>已跳过</h2>
+        <button class="icon-btn" id="btnCloseTrash">✕</button>
+      </div>
+      <div id="trashList" class="panel-list"></div>
+      <div class="panel-empty hidden" id="trashEmpty">还没有跳过的任务</div>
+    </div>
+  </div>
+
+  <!-- ═══ 设置面板 ═══ -->
+  <div id="settingsPanel" class="overlay-panel hidden">
+    <div class="panel-sheet glass-sheet">
+      <div class="panel-head">
+        <h2><span style="color: var(--text-sub); margin-right: 8px; font-size: 0.8em">●</span>设置</h2>
+        <button class="icon-btn" id="btnCloseSettings">✕</button>
+      </div>
+      <div class="setting-group">
+        <label>iCal 订阅地址</label>
+        <input type="url" id="inputIcalURL" class="glass-input" placeholder="https://...">
+        <button class="pill-btn glow-primary" id="btnRefreshICal">刷新课表</button>
+      </div>
+      <div class="setting-group">
+        <label>或者粘贴 iCal 内容</label>
+        <textarea id="inputIcalText" class="glass-input" rows="5" placeholder="BEGIN:VCALENDAR..."></textarea>
+        <button class="pill-btn glow-primary" id="btnParseICal">解析课表</button>
+      </div>
+      <div class="setting-group">
+        <label>状态</label>
+        <p class="text-sub" id="icalStatus">未加载</p>
+      </div>
+      <hr class="glass-divider">
+      <div class="setting-group">
+        <label>GitHub 同步</label>
+        <input type="password" id="inputGHToken" class="glass-input" placeholder="GitHub Token (ghp_...)">
+        <input type="text" id="inputGHRepo" class="glass-input" placeholder="用户名/仓库名">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <label style="white-space:nowrap;margin:0">保留</label>
+          <input type="number" id="inputGHRetention" class="glass-input" value="30" style="width:80px;margin:0">
+          <label style="margin:0">天</label>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="pill-btn glow-primary" id="btnSyncNow">立即同步</button>
+          <button class="pill-btn glass-pill-btn" id="btnSyncClean">清理过期</button>
+        </div>
+        <p class="text-sub" id="syncStatus" style="margin-top:6px">未同步</p>
+      </div>
+      <hr class="glass-divider">
+      <div class="setting-group">
+        <button class="pill-btn glow-danger" id="btnResetProgress">重置所有进度</button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- ═══ 记忆日程 ═══ -->
+  <div id="memoryPanel" class="overlay-panel hidden">
+    <div class="panel-sheet glass-sheet">
+      <div class="panel-head">
+        <h2><span style="color: var(--glow-secondary); margin-right: 8px; font-size: 0.8em">●</span>记忆日程</h2>
+        <button class="icon-btn" id="btnCloseMemory">✕</button>
+      </div>
+      <!-- 日期范围 -->
+      <div class="setting-group">
+        <label>生效日期范围</label>
+        <div class="mem-range-row">
+          <input type="date" id="memStart" class="glass-input">
+          <span class="mem-range-sep">至</span>
+          <input type="date" id="memEnd" class="glass-input">
+        </div>
+      </div>
+      <!-- 星期标签页 -->
+      <div class="mem-day-tabs" id="memDayTabs">
+        <button class="mem-day-tab active" data-dow="1">一</button>
+        <button class="mem-day-tab" data-dow="2">二</button>
+        <button class="mem-day-tab" data-dow="3">三</button>
+        <button class="mem-day-tab" data-dow="4">四</button>
+        <button class="mem-day-tab" data-dow="5">五</button>
+        <button class="mem-day-tab" data-dow="6">六</button>
+        <button class="mem-day-tab" data-dow="0">日</button>
+      </div>
+      <!-- 当日事件列表 -->
+      <div id="memEventsList" class="mem-events-list"></div>
+      <button class="pill-btn glass-pill-btn" id="btnAddMemEvent" style="width:100%;justify-content:center;margin-top:10px">+ 添加课程</button>
+      <hr class="glass-divider">
+      <button class="pill-btn glow-primary" id="btnSaveMemory" style="width:100%;justify-content:center">保存日程模板</button>
+      <!-- 已保存列表 -->
+      <div id="memRangesList" class="mem-ranges-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══ 展开详情层（单击=信息 / 长按=计时）═══ -->
+  <div id="expandLayer" class="expand-layer hidden">
+    <div id="expandCard" class="expand-card glass-sheet">
+
+      <!-- 单击展开：任务信息 -->
+      <div id="expandInfoSection">
+        <div class="expand-time" id="exTime"></div>
+        <div class="expand-course" id="exCourse"></div>
+        <div class="expand-title" id="exTitle"></div>
+        <div class="expand-desc" id="exDesc"></div>
+        <div class="expand-actions" id="exActions"></div>
+      </div>
+
+      <!-- 长按展开：任务 + 底部操作栏 / 转轮选择器 -->
+      <div id="expandTimerSection" class="hidden">
+        <!-- 第一屏：任务信息 + 底部双按钮栏 -->
+        <div id="timerHome">
+          <div class="expand-course" id="exTimerCourse"></div>
+          <div class="expand-title" id="exTimerTitle"></div>
+          <p class="text-sub" id="timerHomeStatus" style="margin-top:8px;text-align:center;font-size:.8rem"></p>
+          <div class="timer-action-bar">
+            <button class="timer-action-btn" id="btnShowAlarm">
+              <span class="timer-action-label">闹钟</span>
+              <span class="timer-action-sub" id="alarmBtnHint"></span>
+            </button>
+            <div class="timer-action-divider"></div>
+            <button class="timer-action-btn" id="btnShowTimer">
+              <span class="timer-action-label">计时</span>
+              <span class="timer-action-sub" id="timerBtnHint"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 第二屏：闹钟转轮 -->
+        <div id="alarmWheelView" class="wheel-view hidden">
+          <div class="wheel-header">
+            <button class="wheel-back" id="btnAlarmBack">← 返回</button>
+            <span class="wheel-title">设置闹钟</span>
+          </div>
+          <div class="wheel-container">
+            <div class="wheel-col" id="wheelAlarmH" data-type="h24"></div>
+            <div class="wheel-sep">:</div>
+            <div class="wheel-col" id="wheelAlarmM" data-type="m60"></div>
+          </div>
+          <div class="wheel-highlight"></div>
+          <div class="wheel-actions">
+            <button class="pill-btn glow-primary" id="btnConfirmAlarm">设定</button>
+            <button class="pill-btn glass-pill-btn" id="btnCancelAlarm">取消闹钟</button>
+          </div>
+        </div>
+
+        <!-- 第三屏：计时转轮 -->
+        <div id="timerWheelView" class="wheel-view hidden">
+          <div class="wheel-header">
+            <button class="wheel-back" id="btnTimerBack">← 返回</button>
+            <span class="wheel-title" id="timerWheelTitle">设置计时</span>
+          </div>
+          <div class="wheel-container" id="timerWheelContainer">
+            <div class="wheel-col" id="wheelTimerM" data-type="m99"></div>
+            <div class="wheel-sep">:</div>
+            <div class="wheel-col" id="wheelTimerS" data-type="s60"></div>
+          </div>
+          <div class="wheel-highlight"></div>
+          <div class="wheel-actions">
+            <button class="pill-btn glow-primary" id="btnTimerToggle">开始</button>
+            <button class="pill-btn glass-pill-btn" id="btnTimerReset">重置</button>
+          </div>
+          <div class="timer-display" id="timerDisplay" style="display:none">25:00</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ 底部胶囊操作栏 ═══ -->
+  <div class="bottom-bar">
+    <div class="capsule-bar glass-pill">
+      <button class="capsule-btn" id="btnDrawer">
+        <span class="capsule-label" style="color: var(--glow-success)">已完成</span>
+        <span class="capsule-badge hidden" id="drawerBadge">0</span>
+      </button>
+      <div class="capsule-divider"></div>
+      <button class="capsule-btn" id="btnTrash">
+        <span class="capsule-label" style="color: var(--glow-danger)">已跳过</span>
+        <span class="capsule-badge hidden" id="trashBadge">0</span>
+      </button>
+      <div class="capsule-divider"></div>
+      <button class="capsule-btn" id="btnExplore">
+        <span class="capsule-label" style="color: var(--glow-primary)">探索</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ 外观设置面板 ═══ -->
+  <div id="appearancePanel" class="overlay-panel hidden">
+    <div class="panel-sheet glass-sheet" style="max-height:85vh;overflow-y:auto">
+      <div class="panel-head">
+        <h2><span style="color: var(--glow-primary); margin-right: 8px; font-size: 0.8em">◎</span>外观</h2>
+        <button class="icon-btn" id="btnCloseAppearance">✕</button>
+      </div>
+
+      <!-- 按钮颜色 -->
+      <div class="appear-section">
+        <div class="appear-section-title">按钮颜色</div>
+        <div class="appear-row">
+          <span class="appear-label">主色调</span>
+          <input type="color" class="appear-color" id="apClrPrimary" data-var="--glow-primary">
+        </div>
+        <div class="appear-row">
+          <span class="appear-label">辅助色</span>
+          <input type="color" class="appear-color" id="apClrSecondary" data-var="--glow-secondary">
+        </div>
+        <div class="appear-row">
+          <span class="appear-label">危险色</span>
+          <input type="color" class="appear-color" id="apClrDanger" data-var="--glow-danger">
+        </div>
+        <div class="appear-row">
+          <span class="appear-label">成功色</span>
+          <input type="color" class="appear-color" id="apClrSuccess" data-var="--glow-success">
+        </div>
+      </div>
+
+      <!-- 文字样式 -->
+      <div class="appear-section">
+        <div class="appear-section-title">文字</div>
+        <div class="appear-row">
+          <span class="appear-label">主文字色</span>
+          <input type="color" class="appear-color" id="apClrTextMain" data-var="--text-main">
+        </div>
+        <div class="appear-row">
+          <span class="appear-label">副文字色</span>
+          <input type="color" class="appear-color" id="apClrTextSub" data-var="--text-sub">
+        </div>
+        <div class="appear-row">
+          <span class="appear-label">基础字号</span>
+          <input type="range" class="appear-range" id="apFontSize" min="12" max="22" step="1">
+          <span class="appear-val" id="apFontSizeVal">16px</span>
+        </div>
+      </div>
+
+      <!-- 卡片样式 -->
+      <div class="appear-section">
+        <div class="appear-section-title">卡片</div>
+        <div class="appear-row">
+          <span class="appear-label">卡片底色</span>
+          <input type="color" class="appear-color" id="apClrCard" data-var="--card-tint">
+        </div>
+        <div class="appear-row">
+          <span class="appear-label">卡片透明度</span>
+          <input type="range" class="appear-range" id="apCardAlpha" min="0" max="100" step="1">
+          <span class="appear-val" id="apCardAlphaVal">5%</span>
+        </div>
+      </div>
+
+      <!-- 背景设置（预留） -->
+      <div class="appear-section">
+        <div class="appear-section-title">背景</div>
+        <div class="appear-row" style="justify-content:center;color:var(--text-sub);font-size:.8rem">
+          即将开放
+        </div>
+      </div>
+
+      <hr class="glass-divider">
+      <div style="display:flex;gap:8px">
+        <button class="pill-btn glow-primary" id="btnApplyAppearance" style="flex:1">应用</button>
+        <button class="pill-btn glass-pill-btn" id="btnResetAppearance" style="flex:1">重置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 自由探索面板 ═══ -->
+  <div id="explorePanel" class="overlay-panel hidden">
+    <div class="panel-sheet glass-sheet">
+      <div class="panel-head">
+        <h2><span style="color: var(--glow-primary); margin-right: 8px; font-size: 0.8em">◈</span>自由探索</h2>
+        <button class="icon-btn" id="btnCloseExplore">✕</button>
+      </div>
+      <div id="exploreList" class="explore-list"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js?v=7"></script>
+<script src="js/ical-parser.js?v=2"></script>
+<script src="js/scheduler.js?v=9"></script>
+<script src="js/memory-schedule.js?v=2"></script>
+<script src="js/sync.js?v=2"></script>
+<script src="js/app.js?v=10"></script>
+</body>
+</html>
