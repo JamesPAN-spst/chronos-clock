@@ -1,6 +1,6 @@
 {
   "date": "2026-04-14",
-  "generated": "2026-04-13T22:25:05.591Z",
+  "generated": "2026-04-13T23:05:08.944Z",
   "tasks": [
     {
       "courseId": "math",
@@ -19,20 +19,25 @@
     {
       "courseId": "cpp",
       "courseName": "C++ 全栈",
-      "title": "1.1 环境搭建与 Hello World",
+      "title": "1.2 变量、类型与运算符",
       "type": "learn",
       "status": "pending"
     }
   ],
-  "drawer": [],
+  "drawer": [
+    {
+      "courseId": "cpp",
+      "title": "1.1 环境搭建与 Hello World"
+    }
+  ],
   "trash": [],
   "stats": {
-    "weekLearned": 0,
+    "weekLearned": 1,
     "weekReviewed": 0,
     "courses": [
       {
         "id": "cpp",
-        "percent": 0
+        "percent": 1
       },
       {
         "id": "math",
