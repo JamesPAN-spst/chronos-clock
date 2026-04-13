@@ -1,6 +1,6 @@
 {
   "date": "2026-04-13",
-  "generated": "2026-04-13T21:48:11.525Z",
+  "generated": "2026-04-13T21:52:46.666Z",
   "tasks": [
     {
       "courseId": "math",
@@ -13,13 +13,6 @@
       "courseId": "arch",
       "courseName": "计算机结构",
       "title": "电压·电流·电阻",
-      "type": "learn",
-      "status": "pending"
-    },
-    {
-      "courseId": "cpp",
-      "courseName": "C++ 全栈",
-      "title": "1.1 环境搭建与 Hello World",
       "type": "learn",
       "status": "pending"
     }
