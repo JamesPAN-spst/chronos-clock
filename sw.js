@@ -2,7 +2,7 @@
 //  Service Worker — 离线缓存
 // ═══════════════════════════════════════════════════
 
-const CACHE_NAME = 'chronos-v11';
+const CACHE_NAME = 'chronos-v12';
 const ASSETS = [
   './',
   './index.html',

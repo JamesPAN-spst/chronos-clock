@@ -100,6 +100,28 @@ const App = {
       });
     }
 
+    // ─── 第一节课提前 1.5 小时闹钟 ───
+    const classEvents = todayEvents.filter(ev => ev.start > now).sort((a, b) => a.start - b.start);
+    if (classEvents.length > 0) {
+      const first = classEvents[0];
+      const alarmKey = `firstclass_alarm_${first.start.getTime()}`;
+      if (!this._notifiedTasks.has(alarmKey)) {
+        const ALARM_LEAD = 90 * 60 * 1000; // 1.5 小时
+        const diff = first.start.getTime() - now.getTime();
+        // 在 1.5h 前到 1h25min 前这个窗口触发
+        if (diff <= ALARM_LEAD && diff > ALARM_LEAD - 5 * 60 * 1000) {
+          this._notifiedTasks.add(alarmKey);
+          const timeStr = this.formatTime(first.start);
+          const mins = Math.round(diff / 60000);
+          this.fireTaskReminder({
+            key: alarmKey,
+            name: `${first.summary || '课程'}`,
+            start: first.start
+          }, timeStr, `${mins}分钟后`);
+        }
+      }
+    }
+
     const LEAD_MS = 10 * 60 * 1000; // 提前 10 分钟提醒
 
     for (const item of items) {
@@ -1480,13 +1502,29 @@ const App = {
       const isOngoing = this.isSameDay(this.currentDate, now) && item.start <= now && item.end > now;
 
       if (item.type === 'class') {
+        const classKey = `class_${item.start.getTime()}`;
+        const classDone = this.todayDrawer.some(d => d.key === classKey);
+        const classSkipped = this.todayTrash.some(d => d.key === classKey);
+        if (classSkipped) { continue; }
         wrapper.innerHTML = `
-          <div class="class-card${isOngoing ? ' card-ongoing' : ''}" data-start-time="${item.start.getTime()}" data-end-time="${item.end.getTime()}">
-            <div class="task-time">${this.formatTime(item.start)}</div>
-            <div class="task-indicator"></div>
-            <div class="task-info">
-              <div class="class-label">课程</div>
-              <div class="task-title">${this.escapeHtml(item.summary)}</div>
+          <div class="task-container">
+            <div class="swipe-actions">
+              <div class="action-btn btn-archive">✓</div>
+              <div class="action-btn btn-skip">✕</div>
+            </div>
+            <div class="class-card task-card ${classDone ? 'task-done-overlay' : ''} ${isOngoing && !classDone ? 'card-ongoing' : ''}"
+                 data-start-time="${item.start.getTime()}" data-end-time="${item.end.getTime()}"
+                 data-task-key="${classKey}" data-is-class="1"
+                 data-course="class" data-unit="0" data-chapter="0" data-type="class"
+                 data-url="" data-title="${this.escapeHtml(item.summary)}" data-course-name="课程"
+                 data-color="" data-icon="" data-done="${classDone ? '1' : '0'}"
+                 data-time-start="${this.formatTime(item.start)}" data-time-end="${this.formatTime(item.end)}">
+              <div class="task-time">${this.formatTime(item.start)}</div>
+              <div class="task-indicator"></div>
+              <div class="task-info">
+                <div class="class-label">课程</div>
+                <div class="task-title">${this.escapeHtml(item.summary)}</div>
+              </div>
             </div>
           </div>
         `;
@@ -1688,13 +1726,17 @@ const App = {
     card.style.opacity = '0';
 
     setTimeout(() => {
-      // 标记完成
-      if (t.type === 'review') {
-        Scheduler.markReviewDone(t.courseId, t.unitIdx);
-      } else {
-        Scheduler.markDone(t.courseId, t.unitIdx, t.chapterIdx);
+      const isClass = card.dataset.isClass === '1';
+      const key = isClass ? card.dataset.taskKey : `${t.courseId}_${t.unitIdx}_${t.chapterIdx}`;
+      // 标记完成（学校课程不记学习进度）
+      if (!isClass) {
+        if (t.type === 'review') {
+          Scheduler.markReviewDone(t.courseId, t.unitIdx);
+        } else {
+          Scheduler.markDone(t.courseId, t.unitIdx, t.chapterIdx);
+        }
       }
-      this.todayDrawer.push({ ...t, key: `${t.courseId}_${t.unitIdx}_${t.chapterIdx}` });
+      this.todayDrawer.push({ ...t, key });
       this.pushMessage(`已完成: ${t.title}`, '✓');
       this.render();
     }, 350);
@@ -1707,7 +1749,9 @@ const App = {
     card.style.opacity = '0';
 
     setTimeout(() => {
-      this.todayTrash.push({ ...t, key: `${t.courseId}_${t.unitIdx}_${t.chapterIdx}` });
+      const isClass = card.dataset.isClass === '1';
+      const key = isClass ? card.dataset.taskKey : `${t.courseId}_${t.unitIdx}_${t.chapterIdx}`;
+      this.todayTrash.push({ ...t, key });
       this.pushMessage(`已跳过: ${t.title}`, '✕');
       this.render();
     }, 350);
@@ -1726,6 +1770,7 @@ const App = {
       courseIcon: card.dataset.icon,
       timeStart: card.dataset.timeStart,
       timeEnd: card.dataset.timeEnd,
+      taskKey: card.dataset.taskKey,
     };
   },
 
@@ -1736,21 +1781,34 @@ const App = {
   openExpandFromCard(card) {
     const t = this.getTaskDataFromCard(card);
     const isDone = card.dataset.done === '1';
-    this._expandTaskKey = `${t.courseId}_${t.unitIdx}_${t.chapterIdx}`;
-    this._expandTaskData = t;  // 保存任务数据供 completeFromExpand 使用
+    const isClass = card.dataset.isClass === '1';
+    this._expandTaskKey = isClass ? t.taskKey : `${t.courseId}_${t.unitIdx}_${t.chapterIdx}`;
+    this._expandTaskData = t;
 
     document.getElementById('exTime').textContent = t.timeStart;
-    document.getElementById('exCourse').innerHTML = `<span style="color:${t.courseColor}">${t.courseName}</span>`;
-    document.getElementById('exTitle').textContent = t.title;
-    document.getElementById('exDesc').textContent = `${t.timeStart} — ${t.timeEnd} · ${t.type === 'review' ? '复习任务' : '学习任务'}`;
+    if (isClass) {
+      document.getElementById('exCourse').textContent = '课程';
+      document.getElementById('exTitle').textContent = t.title;
+      document.getElementById('exDesc').textContent = `${t.timeStart} — ${t.timeEnd} · 学校课程`;
+    } else {
+      document.getElementById('exCourse').innerHTML = `<span style="color:${t.courseColor}">${t.courseName}</span>`;
+      document.getElementById('exTitle').textContent = t.title;
+      document.getElementById('exDesc').textContent = `${t.timeStart} — ${t.timeEnd} · ${t.type === 'review' ? '复习任务' : '学习任务'}`;
+    }
 
     const actions = document.getElementById('exActions');
-    actions.innerHTML = `
-      <a href="${this.escapeHtml(t.url)}" target="_blank" class="pill-btn glow-primary">开始学习 →</a>
-      ${isDone ? '<span style="color:var(--glow-success);font-weight:600">已完成</span>' : `
-        <button class="pill-btn glow-success" id="btnCompleteExpand">完成 ✓</button>
-      `}
-    `;
+    if (isClass) {
+      actions.innerHTML = isDone
+        ? '<span style="color:var(--glow-success);font-weight:600">已完成</span>'
+        : `<button class="pill-btn glow-success" id="btnCompleteExpand">完成 ✓</button>`;
+    } else {
+      actions.innerHTML = `
+        <a href="${this.escapeHtml(t.url)}" target="_blank" class="pill-btn glow-primary">开始学习 →</a>
+        ${isDone ? '<span style="color:var(--glow-success);font-weight:600">已完成</span>' : `
+          <button class="pill-btn glow-success" id="btnCompleteExpand">完成 ✓</button>
+        `}
+      `;
+    }
 
     // 绑定完成按钮事件（通过闭包捕获任务数据，避免状态丢失）
     const btnComplete = document.getElementById('btnCompleteExpand');
@@ -1813,15 +1871,19 @@ const App = {
       btn.style.pointerEvents = 'none';
     }
 
-    if (type === 'review') {
-      Scheduler.markReviewDone(courseId, unitIdx);
-    } else {
-      Scheduler.markDone(courseId, unitIdx, chapterIdx);
+    const isClass = type === 'class';
+    if (!isClass) {
+      if (type === 'review') {
+        Scheduler.markReviewDone(courseId, unitIdx);
+      } else {
+        Scheduler.markDone(courseId, unitIdx, chapterIdx);
+      }
     }
 
     // 收集到「已完成」抽屉
     if (taskData) {
-      this.todayDrawer.push({ ...taskData, key: `${courseId}_${unitIdx}_${chapterIdx}` });
+      const key = isClass && taskData.taskKey ? taskData.taskKey : `${courseId}_${unitIdx}_${chapterIdx}`;
+      this.todayDrawer.push({ ...taskData, key });
     }
 
     // 短暂延迟后关闭，让用户看到反馈
