@@ -1,0 +1,47 @@
+{
+  "date": "2026-04-13",
+  "generated": "2026-04-13T21:48:11.525Z",
+  "tasks": [
+    {
+      "courseId": "math",
+      "courseName": "数学全景",
+      "title": "MC2 微积分+线代",
+      "type": "learn",
+      "status": "pending"
+    },
+    {
+      "courseId": "arch",
+      "courseName": "计算机结构",
+      "title": "电压·电流·电阻",
+      "type": "learn",
+      "status": "pending"
+    },
+    {
+      "courseId": "cpp",
+      "courseName": "C++ 全栈",
+      "title": "1.1 环境搭建与 Hello World",
+      "type": "learn",
+      "status": "pending"
+    }
+  ],
+  "drawer": [],
+  "trash": [],
+  "stats": {
+    "weekLearned": 0,
+    "weekReviewed": 0,
+    "courses": [
+      {
+        "id": "cpp",
+        "percent": 0
+      },
+      {
+        "id": "math",
+        "percent": 0
+      },
+      {
+        "id": "arch",
+        "percent": 0
+      }
+    ]
+  }
+}
