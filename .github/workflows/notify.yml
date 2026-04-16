@@ -1,0 +1,49 @@
+name: Chronos Daily Notification
+
+on:
+  schedule:
+    # 每天早上 7:00 巴黎时间 = 5:00 UTC (夏令时) / 6:00 UTC (冬令时)
+    # 用 5:00 UTC 保证夏冬都能在早上收到
+    - cron: '0 5 * * *'
+
+    # 学习提醒：17:00, 19:00, 20:30 巴黎时间 (UTC -2h 夏令时)
+    - cron: '0 15 * * 1-4,6-7'
+    - cron: '0 17 * * 1-4,6-7'
+    - cron: '30 18 * * 1-4,6-7'
+
+  # 手动触发（调试用）
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'morning or reminder'
+        required: false
+        default: 'morning'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Determine mode
+        id: mode
+        run: |
+          HOUR=$(TZ='Europe/Paris' date +%H)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ github.event.inputs.mode || 'morning' }}" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" -lt 10 ]; then
+            echo "mode=morning" >> $GITHUB_OUTPUT
+          else
+            echo "mode=reminder" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send notification
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          ICAL_URL: ${{ secrets.ICAL_URL }}
+        run: node bot/notify.mjs ${{ steps.mode.outputs.mode }}
